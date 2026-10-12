@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2ead8">
+<meta name="description" content="神社建築、神明造・大社造、式内社・社格、神々・神話を円でたどる知識マップ。">
+<title>縁図｜神社の知識関係マップ</title>
+<style>
+:root{
+  --paper:#f4efdf;--paper-light:#fbf8ee;--paper-deep:#e9dfca;
+  --ink:#293b33;--muted:#7f8070;--vermillion:#a84635;--vermillion-deep:#793323;
+  --moss:#3d6150;--gold:#987744;--edge:#b1a28b;--line-soft:#cebea5;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{font-family:'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;color:var(--ink);background:var(--paper)}
+button{font:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid #b96342;outline-offset:3px}
+#viewport{
+ position:fixed;inset:0;overflow:hidden;touch-action:none;cursor:grab;
+ background:
+   radial-gradient(ellipse at 50% 45%,rgba(255,253,242,.78) 0%,rgba(245,237,219,.34) 60%,transparent 85%),
+   repeating-linear-gradient(0deg,transparent 0 36px,rgba(140,113,78,.035) 36px 37px),
+   repeating-linear-gradient(90deg,transparent 0 36px,rgba(140,113,78,.035) 36px 37px),
+   repeating-linear-gradient(25deg,rgba(112,93,64,.012) 0 1px,transparent 1px 7px),
+   #f2ead8;
+}
+#viewport.dragging{cursor:grabbing}
+#world{position:absolute;top:0;left:0;width:2900px;height:2100px;transform-origin:0 0;will-change:transform}
+#world::before,#world::after{
+ content:'';position:absolute;left:1450px;top:1050px;transform:translate(-50%,-50%);
+ border:1px solid rgba(146,104,67,.065);border-radius:50%;pointer-events:none;
+}
+#world::before{width:880px;height:880px;border-color:rgba(171,79,57,.15)}
+#world::after{width:1610px;height:1610px;border-style:dotted;border-color:rgba(146,104,67,.14)}
+/* Subtle orbital tracks; all knowledge labels stay upright as they travel. */
+#world::before,#world::after{box-shadow:0 0 45px rgba(160,95,48,.016);z-index:0}
+#wires{position:absolute;inset:0;width:2900px;height:2100px;overflow:visible;pointer-events:none}
+#wires .wire{fill:none;stroke:var(--edge);stroke-width:2.2;opacity:.83;stroke-linecap:round}
+#wires .wire.outer{stroke:#a9b7a0;stroke-width:1.8;opacity:.80}
+#wires .wire.cross{stroke:#bcb19e;stroke-width:1.4;stroke-dasharray:6 10;opacity:.47}
+#wires .wire.detail-wire{stroke:var(--vermillion);stroke-width:2.4;opacity:.94;stroke-dasharray:none}
+#wires .wire.highlight{stroke:var(--vermillion);stroke-width:2.7;opacity:1}
+#wires .wire-dot{fill:var(--vermillion);opacity:.85}
+#nodes{position:absolute;inset:0;pointer-events:none}
+.node{
+ --border-color:#a7a18f;--surface:#fffdf4;
+ position:absolute;left:0;top:0;width:158px;height:158px;transform:translate(-50%,-50%);
+ display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;
+ border:1.6px solid var(--border-color);border-radius:50%;
+ background:linear-gradient(145deg,#fffdf6 10%,#f8f1e0 100%);color:var(--ink);
+ text-align:center;cursor:pointer;padding:17px;user-select:none;pointer-events:auto;
+ box-shadow:0 6px 16px rgba(72,54,31,.06), inset 0 0 0 4px rgba(255,255,255,.44);
+ transition:border-color .22s,box-shadow .22s,background .22s,opacity .28s;
+}
+.node.shrine{--border-color:#b45442}.node.kami{--border-color:#5d806b}
+.node.treasure{--border-color:#b69b65}.node.concept{--border-color:#9a9186}
+.node.architecture{--border-color:#98734a}.node.rank{--border-color:#716c8b}
+.node:hover{border-color:#ae4c39;box-shadow:0 9px 24px rgba(131,62,43,.14),0 0 0 5px rgba(179,87,61,.08)}
+.node.secondary{width:124px;height:124px;opacity:.96;background:#f9f7eb;border-style:dashed;padding:14px;box-shadow:0 3px 10px rgba(70,54,39,.045)}
+.node.secondary .name{font-size:14px}
+.node.secondary .short{display:none}
+.node.secondary .kind{font-size:11px;margin-bottom:2px}
+.node.root{
+ width:216px;height:216px;background:radial-gradient(circle at 32% 22%,#c66349,#a34432 82%);
+ border:2px solid #a43e2b;color:#fff6e8;box-shadow:0 14px 35px rgba(126,50,34,.16),inset 0 0 0 5px rgba(255,233,193,.13)
+}
+.node.root .kind{color:#ffe0c1}
+.node.root .name{font-family:'Noto Serif JP','Yu Mincho',serif;font-size:27px;letter-spacing:.04em}
+.node.root .short{color:#f9dfc9;max-width:160px;font-size:12px}
+.node.selected:not(.root){border:2.4px solid var(--vermillion);box-shadow:0 0 0 5px rgba(177,73,49,.1),0 10px 24px rgba(104,70,46,.11)}
+.node.selected.root{box-shadow:0 0 0 7px rgba(177,73,49,.16),0 14px 35px rgba(126,50,34,.17)}
+.node.birth{opacity:0!important}
+.kind{font-size:11px;line-height:1.1;letter-spacing:.11em;color:var(--border-color);font-weight:700;margin-bottom:2px}
+.name{font-size:18px;line-height:1.38;font-weight:700;overflow-wrap:anywhere}
+.short{color:#898678;font-size:12px;line-height:1.4;max-width:122px;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+#detail{
+ position:absolute;width:520px;height:660px;border:1px solid #b98d72;border-radius:5px;
+ background:linear-gradient(150deg,#fffdf4,#f6eddd);
+ color:var(--ink);box-shadow:0 16px 36px rgba(83,59,36,.16),inset 0 0 0 5px rgba(255,255,255,.46);
+ display:none;overflow:hidden;
+ transition:opacity .2s;
+}
+#detail.visible{display:block}
+#detail::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--vermillion),#d39a6c 63%,var(--gold));pointer-events:none}
+.detail-scroll{height:100%;overflow:auto;padding:40px 40px;overscroll-behavior:contain;scrollbar-color:#b5a08a transparent;scrollbar-width:thin}
+.detail-kind{color:var(--vermillion);font-size:17px;letter-spacing:.2em;font-weight:700;margin-bottom:8px}
+.detail-name{font-family:'Noto Serif JP','Yu Mincho',serif;font-size:39px;line-height:1.35;font-weight:700;margin:0}
+.detail-reading{font-size:16px;color:#8b806f;margin:5px 0 0}
+.detail-desc{font-size:23px;line-height:1.78;color:#4c5147;margin:21px 0 20px}
+.detail-label{margin:21px 0 11px;padding-top:13px;border-top:1px solid #e1d2bc;font-size:15px;color:#96634f;letter-spacing:.11em;font-weight:700}
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.tag{border:1px solid #ddcbb4;background:#faf5e8;border-radius:100px;color:#6c6254;font-size:14px;padding:5px 9px}
+.relation{border:0;border-bottom:1px solid #e5d9c9;background:transparent;padding:11px 0;width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;color:var(--ink);cursor:pointer}
+.relation:hover .rel-name{color:var(--vermillion)}
+.rel-main{display:flex;flex-direction:column;gap:4px}
+.rel-type{font-size:14px;color:#9a806d}
+.rel-name{font-size:20px;font-weight:700}
+.rel-arrow{font-size:18px;color:#af806a}
+.reference{display:block;padding:7px 0;color:#985843;font-size:15px;text-underline-offset:3px}
+.reference:hover{color:#6e3428}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.node,#detail{transition:none!important}}
+</style>
+</head><body>
+<main id="viewport" aria-label="神社・神話の関係図。円をクリックすると詳細、ダブルクリックでその円を中心に表示。マップはドラッグとホイール操作に対応しています。">
+  <div id="world">
+    <svg id="wires" viewBox="0 0 2900 2100" aria-hidden="true"></svg>
+    <div id="nodes"></div>
+    <section id="detail" aria-label="選択した項目の詳細"><div class="detail-scroll" id="detailScroll"></div></section>
+  </div>
+</main>
+
+<!-- GitHub Pages (HTTPS) で直接 YAML を読み取ります。ライブラリは CDN から読み込みます。 -->
+<script defer src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<script defer src="./js/app.js"></script>
+</body></html>

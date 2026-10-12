@@ -1,0 +1,292 @@
+# 神社建築の様式・用語・実例。神社のすべての社殿が同じ様式とは限りません。
+# 1ブロック＝1件。項目の追加・変更・削除はこのファイルだけで可能です。
+
+- id: shimmei
+  type: architecture
+  name: 神明造
+  reading: しんめいづくり
+  short: 切妻造・平入。伊勢が代表
+  description: |
+    穀倉の形式に由来すると説明される社殿様式。切妻屋根の長辺側に入口を設ける平入を基本とします。伊勢の神宮正宮の形式は「唯一神明造」と呼ばれます。
+  tags:
+    - 平入
+    - 切妻屋根
+    - 伊勢神宮
+- id: yuitsu_shimmei
+  type: architecture
+  name: 唯一神明造
+  reading: ゆいいつしんめいづくり
+  short: 伊勢の神宮の正殿に固有の様式
+  description: |
+    伊勢神宮の正殿の建築様式。掘立柱、素木の檜材、萱葺きの屋根などを特徴とします。一般の神明造と区別して「唯一神明造」と呼ばれます。
+  tags:
+    - 伊勢神宮
+    - 素木
+    - 掘立柱
+- id: taisha_zukuri
+  type: architecture
+  name: 大社造
+  reading: たいしゃづくり
+  short: 切妻造・妻入。出雲が代表
+  description: |
+    出雲大社の本殿に代表される、切妻屋根の妻側から入る様式。古代の住居形態に由来すると説明されます。入口の位置と平面構成が神明造と異なります。
+  tags:
+    - 妻入
+    - 切妻屋根
+    - 出雲大社
+- id: nagare
+  type: architecture
+  name: 流造
+  reading: ながれづくり
+  short: 前側の屋根を長く伸ばす
+  description: |
+    切妻・平入で、正面側の屋根を長く伸ばして向拝とすることが特徴です。上賀茂神社・下鴨神社などの社殿にみられます。
+  tags:
+    - 平入
+    - 向拝
+    - 賀茂社
+- id: kasuga_zukuri
+  type: architecture
+  name: 春日造
+  reading: かすがづくり
+  short: 妻入の正面に向拝を付ける
+  description: |
+    切妻・妻入を基本とし、正面に向拝を設ける形式。春日大社の本殿が代表例で、朱塗りの小規模な社殿などにみられます。
+  tags:
+    - 妻入
+    - 向拝
+    - 春日大社
+- id: sumiyoshi_zukuri
+  type: architecture
+  name: 住吉造
+  reading: すみよしづくり
+  short: 前後2室に分かれる古式の社殿
+  description: |
+    切妻・妻入で、内部を内陣と外陣の前後二室に分ける形式。大阪の住吉大社本殿が代表例です。
+  tags:
+    - 妻入
+    - 内陣
+    - 外陣
+- id: hachiman_zukuri
+  type: architecture
+  name: 八幡造
+  reading: はちまんづくり
+  short: 前後の二棟が連なる本殿形式
+  description: |
+    平入の切妻造の社殿二棟を前後に連結する形式。宇佐神宮や石清水八幡宮に代表されます。
+  tags:
+    - 平入
+    - 二棟連結
+    - 八幡信仰
+- id: gongen_zukuri
+  type: architecture
+  name: 権現造
+  reading: ごんげんづくり
+  short: 本殿・幣殿・拝殿の一体構成
+  description: |
+    本殿と拝殿を石の間（幣殿）などで連結し、一体的な社殿とする形式。日光東照宮や北野天満宮などが代表例です。
+  tags:
+    - 本殿
+    - 幣殿
+    - 拝殿
+- id: sengen_zukuri
+  type: architecture
+  name: 浅間造
+  reading: せんげんづくり
+  short: 二層の特異な社殿構成
+  description: |
+    拝殿の上に流造の本殿を載せたような二層構造で知られ、富士山本宮浅間大社の本殿に代表されます。
+  tags:
+    - 二層構造
+    - 富士山本宮浅間大社
+- id: hie_zukuri
+  type: architecture
+  name: 日吉造
+  reading: ひえづくり
+  short: 日吉大社に伝わる特徴的な屋根
+  description: |
+    滋賀県の日吉大社の社殿に代表される特殊な形式。正面・側面に庇が回る一方、背面の構成が異なる独特な屋根の形が特徴です。
+  tags:
+    - 日吉大社
+    - 屋根
+- id: hira_iri
+  type: architecture
+  name: 平入
+  reading: ひらいり
+  short: 屋根の長辺側から入る
+  description: |
+    切妻屋根の棟に平行な側（平側）に入口を設ける形式。神明造・流造・八幡造などを理解する基本概念です。
+  tags:
+    - 入口
+    - 切妻
+- id: tsuma_iri
+  type: architecture
+  name: 妻入
+  reading: つまいり
+  short: 屋根の妻側から入る
+  description: |
+    切妻屋根の三角形に見える妻側に入口を設ける形式。大社造・春日造・住吉造などを理解する基本概念です。
+  tags:
+    - 入口
+    - 切妻
+- id: kirizuma
+  type: architecture
+  name: 切妻造
+  reading: きりづまづくり
+  short: 二方向に傾斜する屋根形
+  description: |
+    棟から左右に二つの屋根面が下る、基本的な屋根形式。神明造・大社造などで用いられます。社殿全体の様式と、屋根の形式は別の分類です。
+  tags:
+    - 屋根形式
+- id: haiden
+  type: architecture
+  name: 拝殿
+  reading: はいでん
+  short: 参拝・拝礼のための建物
+  description: |
+    参拝者が神前に拝礼する社殿。御祭神を祀る本殿とは役割が異なり、両者を連結する様式もあります。
+  tags:
+    - 境内
+    - 社殿
+- id: honden
+  type: architecture
+  name: 本殿
+  reading: ほんでん
+  short: 御祭神をお祀りする中心の社殿
+  description: |
+    神霊や御神体をお祀りする神社の中心的建物。ただし、大神神社など本殿を設けず山を御神体として拝む神社もあります。
+  tags:
+    - 境内
+    - 社殿
+- id: heiden
+  type: architecture
+  name: 幣殿
+  reading: へいでん
+  short: 神前への幣帛奉献などの場
+  description: |
+    一般に本殿と拝殿の間に設けられる、幣帛の奉献などに関わる建物。社殿の構成は神社ごとに異なります。
+  tags:
+    - 社殿
+    - 権現造
+- id: kamigamo
+  type: shrine
+  name: 上賀茂神社
+  reading: かみがもじんじゃ
+  short: 賀茂別雷神社。流造の代表例
+  description: |
+    京都市北区に鎮座する賀茂別雷神社。社殿建築では流造の代表的な例として取り上げられます。
+  tags:
+    - 京都
+    - 流造
+- id: shimogamo
+  type: shrine
+  name: 下鴨神社
+  reading: しもがもじんじゃ
+  short: 賀茂御祖神社。流造の代表例
+  description: |
+    京都市左京区に鎮座する賀茂御祖神社。流造の社殿が知られ、上賀茂神社とともに賀茂の信仰を伝えます。
+  tags:
+    - 京都
+    - 流造
+- id: kasuga_shrine
+  type: shrine
+  name: 春日大社
+  reading: かすがたいしゃ
+  short: 春日造の代表例
+  description: |
+    奈良市に鎮座する神社。春日造と呼ばれる本殿形式の代表例として知られています。
+  tags:
+    - 奈良
+    - 春日造
+- id: sumiyoshi_shrine
+  type: shrine
+  name: 住吉大社
+  reading: すみよしたいしゃ
+  short: 住吉造の代表例
+  description: |
+    大阪市住吉区に鎮座する神社。住吉造の本殿をもち、第一から第四本宮に独特な配置がみられます。
+  tags:
+    - 大阪
+    - 住吉造
+- id: usa
+  type: shrine
+  name: 宇佐神宮
+  reading: うさじんぐう
+  short: 八幡造の代表例
+  description: |
+    大分県宇佐市に鎮座する八幡宮の総本宮として知られる神社。本殿は八幡造の代表例です。
+  tags:
+    - 大分
+    - 八幡造
+- id: iwashimizu
+  type: shrine
+  name: 石清水八幡宮
+  reading: いわしみずはちまんぐう
+  short: 八幡造の代表例
+  description: |
+    京都府八幡市に鎮座する神社。本社の建築は八幡造を理解する代表的な例です。
+  tags:
+    - 京都
+    - 八幡造
+- id: nikko
+  type: shrine
+  name: 日光東照宮
+  reading: にっこうとうしょうぐう
+  short: 権現造の代表例
+  description: |
+    栃木県日光市に鎮座し徳川家康を祀る神社。本殿・石の間・拝殿の連結構成をもつ権現造で知られます。
+  tags:
+    - 栃木
+    - 権現造
+- id: kitano
+  type: shrine
+  name: 北野天満宮
+  reading: きたのてんまんぐう
+  short: 権現造の代表例
+  description: |
+    京都市上京区に鎮座し菅原道真を祀る神社。権現造の社殿構成の代表例として挙げられます。
+  tags:
+    - 京都
+    - 権現造
+- id: fuji_sengen
+  type: shrine
+  name: 富士山本宮浅間大社
+  reading: ふじさんほんぐうせんげんたいしゃ
+  short: 浅間造の代表例
+  description: |
+    静岡県富士宮市に鎮座する神社。二層構造の「浅間造」で知られる本殿を持ちます。
+  tags:
+    - 静岡
+    - 浅間造
+- id: hiyoshi
+  type: shrine
+  name: 日吉大社
+  reading: ひよしたいしゃ
+  short: 日吉造の代表例
+  description: |
+    滋賀県大津市に鎮座する神社。特有の社殿建築形式「日吉造」を伝えることで知られます。
+  tags:
+    - 滋賀
+    - 日吉造
+- id: kashima
+  type: shrine
+  name: 鹿島神宮
+  reading: かしまじんぐう
+  short: 常陸国一宮・式内社（名神大社）
+  description: |
+    茨城県鹿嶋市に鎮座する神社。古代の式内社（名神大社）であり、常陸国一宮としても知られます。これらは時代・制度の異なる呼称です。
+  tags:
+    - 茨城
+    - 名神大社
+    - 一宮
+- id: katori
+  type: shrine
+  name: 香取神宮
+  reading: かとりじんぐう
+  short: 下総国一宮・式内社（名神大社）
+  description: |
+    千葉県香取市に鎮座する神社。古代の式内社（名神大社）に数えられ、下総国一宮としても知られます。
+  tags:
+    - 千葉
+    - 名神大社
+    - 一宮

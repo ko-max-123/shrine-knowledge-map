@@ -1,0 +1,19 @@
+# 読み込むYAMLを列挙。新しいファイルを増やす場合はここに追加します。
+nodes:
+- core.yaml
+- architecture.yaml
+- rank.yaml
+relations:
+- relations.yaml
+sources:
+- sources.yaml
+
+
+nodes:
+  - core.yaml
+  - architecture.yaml
+  - rank.yaml
+relations:
+  - relations.yaml
+sources:
+  - sources.yaml
