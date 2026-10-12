@@ -1,19 +1,11 @@
-# 読み込むYAMLを列挙。新しいファイルを増やす場合はここに追加します。
-nodes:
-- core.yaml
-- architecture.yaml
-- rank.yaml
-relations:
-- relations.yaml
-sources:
-- sources.yaml
-
-
+# GitHub Pages で読み込むYAMLファイル一覧。キーは各1回のみ指定します。
 nodes:
   - core.yaml
   - architecture.yaml
   - rank.yaml
+
 relations:
   - relations.yaml
+
 sources:
   - sources.yaml
