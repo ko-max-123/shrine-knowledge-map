@@ -1,11 +1,14 @@
-# GitHub Pages で読み込むYAMLファイル一覧。キーは各1回のみ指定します。
+# GitHub Pages で読み込むYAML一覧。キーは重複させないでください。
 nodes:
   - core.yaml
   - architecture.yaml
   - rank.yaml
+  - shinmon.yaml
 
 relations:
   - relations.yaml
+  - shinmon-relations.yaml
 
 sources:
   - sources.yaml
+  - shinmon-sources.yaml
