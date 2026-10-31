@@ -44,7 +44,7 @@ button:focus-visible,a:focus-visible{outline:3px solid #b96342;outline-offset:3p
 #nodes{position:absolute;inset:0;pointer-events:none}
 .node{
  --border-color:#a7a18f;--surface:#fffdf4;
- position:absolute;left:0;top:0;width:158px;height:158px;transform:translate(-50%,-50%);
+ position:absolute;left:0;top:0;width:158px;height:158px;transform:translate(-50%,-50%);translate:0 0;touch-action:none;-webkit-tap-highlight-color:transparent;
  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;
  border:1.6px solid var(--border-color);border-radius:50%;
  background:linear-gradient(145deg,#fffdf6 10%,#f8f1e0 100%);color:var(--ink);
@@ -82,7 +82,7 @@ button:focus-visible,a:focus-visible{outline:3px solid #b96342;outline-offset:3p
 }
 #detail.visible{display:block}
 #detail::before{content:'';position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--vermillion),#d39a6c 63%,var(--gold));pointer-events:none}
-.detail-scroll{height:100%;overflow:auto;padding:40px 40px;overscroll-behavior:contain;scrollbar-color:#b5a08a transparent;scrollbar-width:thin}
+.detail-scroll{height:100%;overflow:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;padding:40px 40px;overscroll-behavior:contain;scrollbar-color:#b5a08a transparent;scrollbar-width:thin}
 .detail-kind{color:var(--vermillion);font-size:17px;letter-spacing:.2em;font-weight:700;margin-bottom:8px}
 .detail-name{font-family:'Noto Serif JP','Yu Mincho',serif;font-size:39px;line-height:1.35;font-weight:700;margin:0}
 .detail-reading{font-size:16px;color:#8b806f;margin:5px 0 0}
@@ -99,6 +99,15 @@ button:focus-visible,a:focus-visible{outline:3px solid #b96342;outline-offset:3p
 .reference{display:block;padding:7px 0;color:#985843;font-size:15px;text-underline-offset:3px}
 .reference:hover{color:#6e3428}
 [hidden]{display:none!important}
+/* Touch-first optimization: large background texture and layered shadows are expensive on tablets. */
+@media(pointer:coarse){
+ #viewport{background:radial-gradient(ellipse at 50% 45%,#fbf6e9 0%,#f2ead8 85%)}
+ #world{will-change:auto}
+ .node{box-shadow:0 3px 9px rgba(72,54,31,.055);transition:none}
+ .node.secondary{box-shadow:0 2px 7px rgba(70,54,39,.04)}
+ .node.root{box-shadow:0 6px 18px rgba(126,50,34,.14)}
+ #detail{box-shadow:0 7px 22px rgba(83,59,36,.13)}
+}
 @media(prefers-reduced-motion:reduce){.node,#detail{transition:none!important}}
 </style>
 </head><body>

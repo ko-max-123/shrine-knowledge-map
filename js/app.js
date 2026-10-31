@@ -5,7 +5,13 @@ const WORLD={w:2900,h:2100,cx:1450,cy:1050};
 // A complete orbit takes five minutes. Only positions move; the text stays upright.
 const ORBIT_PERIOD_MS=300000;
 const motionPreference=window.matchMedia('(prefers-reduced-motion: reduce)');
-let orbitAngle=0,lastOrbitTime=0,hoverPaused=false;
+// Slow orbit, adaptive paint rate. DOM/SVG objects are reused between frames.
+const TOUCH_FPS=18, DESKTOP_FPS=30;
+const MAX_FRAME_INTERVAL=1000/(window.matchMedia('(pointer: coarse)').matches?TOUCH_FPS:DESKTOP_FPS);
+let orbitAngle=0,lastOrbitTime=0,lastPaintTime=0,hoverPaused=false,orbitRaf=0;
+let layoutModel=null,wireSegments=[],activeTouches=new Map(),pinchStart=null;
+let ignoreSyntheticTouchClickUntil=0;
+
 
 const LABELS={shrine:'神社',kami:'神様',treasure:'神宝',concept:'信仰・概念',architecture:'建築・様式',rank:'社格・制度'};
 // Knowledge data is maintained in YAML under data/; no HTML editing needed.
@@ -18,7 +24,7 @@ const detail=document.getElementById('detail');
 const detailScroll=document.getElementById('detailScroll');
 let focus='world',selected=null,positions=new Map(),camera={scale:1,x:0,y:0},drag=null,nodeElements=new Map();
 let lastTouchTap={time:0,id:null};
-let pendingClick=null,suppressClickUntil=0;
+let pendingClick=null,touchRecenterTimer=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let adjacency=new Map();
 
@@ -106,36 +112,51 @@ function graphFor(id){
   });
   return {primary,clusters,visible:new Set([...seen])};
 }
-function idealLayout(){
+function buildLayoutModel(){
   const graph=graphFor(focus);
   const ringOne=graph.primary;
   const n=Math.max(1,ringOne.length);
   const r1=n>=9?445:n>=6?435:n>=4?430:420;
   const r2=805;
-  const pts=new Map([[focus,{x:WORLD.cx,y:WORLD.cy,r:108,depth:0}]]);
-  // Allocate a bigger angular sector to branches with more satellites.
   const weights=ringOne.map(r=>1+0.62*graph.clusters.get(r.id).length);
   const total=weights.reduce((a,b)=>a+b,0)||1;
   let cursor=-Math.PI/2-Math.PI*weights[0]/total;
-  ringOne.forEach((rel,i)=>{
+  const branches=ringOne.map((rel,i)=>{
     const sector=Math.PI*2*weights[i]/total;
-    const theta=cursor+sector/2+orbitAngle;
-    const parentX=WORLD.cx+Math.cos(theta)*r1;
-    const parentY=WORLD.cy+Math.sin(theta)*r1;
-    pts.set(rel.id,{x:parentX,y:parentY,r:79,depth:1,parent:focus});
-    const children=graph.clusters.get(rel.id),count=children.length;
+    const centerAngle=cursor+sector/2;
+    const children=graph.clusters.get(rel.id);
     const pad=Math.min(.15,sector*.18);
-    children.forEach((cid,j)=>{
-      const baseAngle=count===1?cursor+sector/2:cursor+pad+(sector-2*pad)*(j+.5)/count;
-      // The satellites also have their own very gentle motion within the
-      // parent branch, evoking moons while preserving the knowledge links.
-      const sway=0.035*Math.sin(orbitAngle*.78+i*.9+j*.7);
-      const childTheta=baseAngle+orbitAngle+sway;
-      pts.set(cid,{x:WORLD.cx+Math.cos(childTheta)*r2,y:WORLD.cy+Math.sin(childTheta)*r2,r:62,depth:2,parent:rel.id});
-    });
+    const satellites=children.map((cid,j)=>({
+      id:cid,index:j,
+      theta:children.length===1?centerAngle:cursor+pad+(sector-2*pad)*(j+.5)/children.length
+    }));
     cursor+=sector;
+    return {id:rel.id,index:i,centerAngle,satellites};
   });
-  return {pts,graph};
+  return {focus,r1,r2,branches};
+}
+function idealLayout(){
+  if(!layoutModel||layoutModel.focus!==focus)layoutModel=buildLayoutModel();
+  const m=layoutModel;
+  const pts=new Map([[focus,{x:WORLD.cx,y:WORLD.cy,r:108,depth:0}]]);
+  for(const branch of m.branches){
+    const theta=branch.centerAngle+orbitAngle;
+    pts.set(branch.id,{
+      x:WORLD.cx+Math.cos(theta)*m.r1,
+      y:WORLD.cy+Math.sin(theta)*m.r1,
+      r:79,depth:1,parent:focus
+    });
+    for(const child of branch.satellites){
+      const sway=0.035*Math.sin(orbitAngle*.78+branch.index*.9+child.index*.7);
+      const angle=child.theta+orbitAngle+sway;
+      pts.set(child.id,{
+        x:WORLD.cx+Math.cos(angle)*m.r2,
+        y:WORLD.cy+Math.sin(angle)*m.r2,
+        r:62,depth:2,parent:branch.id
+      });
+    }
+  }
+  return pts;
 }
 function cardPlace(pts){
   const p=pts.get(selected),width=520,height=660,gap=35;
@@ -163,7 +184,7 @@ function cardPlace(pts){
 }
 function reflow(pts,card){
   const fixed=new Set([focus,selected]);
-  for(let iteration=0;iteration<105;iteration++){
+  for(let iteration=0;iteration<48;iteration++){
     for(const [id,p] of pts){
       if(fixed.has(id))continue;
       // Keep clusters near their intended ring while giving a card a real footprint.
@@ -211,11 +232,17 @@ function reflow(pts,card){
   }
   return pts;
 }
-function paintWires(){
-  const svg=[];
+const SVG_NS='http://www.w3.org/2000/svg';
+function makeSvg(tag,klass){
+  const el=document.createElementNS(SVG_NS,tag);
+  if(klass)el.setAttribute('class',klass);
+  wires.appendChild(el);
+  return el;
+}
+// Build SVG paths once per graph/selection change; orbiting only updates coordinates.
+function buildWires(){
+  wires.replaceChildren();wireSegments=[];
   const done=new Set();
-  // Draw the complete second-order network: central spokes, every branch's
-  // secondary spokes, plus extra (non-tree) relationships between visible nodes.
   for(const [a,b] of EDGES){
     if(!positions.has(a)||!positions.has(b))continue;
     const key=[a,b].sort().join(':');if(done.has(key))continue;done.add(key);
@@ -224,27 +251,45 @@ function paintWires(){
     const outer=!central&&(pa.parent===b||pb.parent===a);
     const active=selected!==null&&(a===selected||b===selected);
     const klass=['wire',central?'inner':outer?'outer':'cross',active?'highlight':''].join(' ');
-    svg.push(`<path class="${klass}" d="M ${pa.x.toFixed(1)} ${pa.y.toFixed(1)} L ${pb.x.toFixed(1)} ${pb.y.toFixed(1)}"/>`);
+    const el=makeSvg('path',klass);
+    wireSegments.push({a,b,el});
   }
-  if(detail._place && selected!==null && positions.has(selected)){
-    const card=detail._place;
-    const p=positions.get(selected);
-    const sx=p.x+(card.side==='right'?p.r:-p.r),sy=p.y;
-    const ex=card.side==='right'?card.x:card.x+card.w;
-    const ey=Math.min(card.y+card.h-24,Math.max(card.y+24,sy));
-    svg.push(`<path class="wire detail-wire" d="M ${sx} ${sy} L ${ex} ${ey}"/>`);
-    svg.push(`<circle class="wire-dot" cx="${ex}" cy="${ey}" r="3.2"/>`);
+  if(detail._place&&selected!==null&&positions.has(selected)){
+    const el=makeSvg('path','wire detail-wire');
+    wireSegments.push({a:selected,el,card:detail._place});
+    wireSegments[wireSegments.length-1].dot=makeSvg('circle','wire-dot');
+    wireSegments[wireSegments.length-1].dot.setAttribute('r','3.2');
   }
-  wires.innerHTML=svg.join('');
-
+  updateWirePositions();
+}
+function updateWirePositions(){
+  for(const segment of wireSegments){
+    const a=positions.get(segment.a);
+    if(!a)continue;
+    if(segment.card){
+      const card=segment.card;
+      const sx=a.x+(card.side==='right'?a.r:-a.r),sy=a.y;
+      const ex=card.side==='right'?card.x:card.x+card.w;
+      const ey=Math.min(card.y+card.h-24,Math.max(card.y+24,sy));
+      segment.el.setAttribute('d',`M ${sx.toFixed(1)} ${sy.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)}`);
+      segment.dot.setAttribute('cx',String(ex));segment.dot.setAttribute('cy',String(ey));
+    }else{
+      const b=positions.get(segment.b);
+      if(b)segment.el.setAttribute('d',`M ${a.x.toFixed(1)} ${a.y.toFixed(1)} L ${b.x.toFixed(1)} ${b.y.toFixed(1)}`);
+    }
+  }
+}
+function moveNode(el,p){
+  // Individual translate is composited without invalidating the layout of 2,900px world.
+  el.style.translate=`${p.x.toFixed(2)}px ${p.y.toFixed(2)}px`;
 }
 function draw(){
-  const {pts:ideal}=idealLayout();
+  const ideal=idealLayout();
   const visibleSelected=selected!==null&&ideal.has(selected);
   const card=visibleSelected?cardPlace(ideal):null;
   positions=card?reflow(ideal,card):ideal;
   detail._place=card;
-  paintWires();
+  buildWires();
 
   const existing=new Map([...nodesEl.querySelectorAll('[data-node]')].map(el=>[el.dataset.node,el]));
   for(const [id,el] of existing){if(!positions.has(id))el.remove();}
@@ -257,22 +302,21 @@ function draw(){
       el.className='node birth';
       el.innerHTML=`<span class="kind"></span><span class="name"></span><span class="short"></span>`;
       el.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')hoverPaused=true;});
-      el.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hoverPaused=false;});
-      el.addEventListener('click',()=>scheduleSelect(id));
-      el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();navigate(id);});
-      el.addEventListener('pointerup',e=>{
-        if(e.pointerType!=='touch')return;
-        const time=Date.now();
-        if(lastTouchTap.id===id&&time-lastTouchTap.time<320){
-          lastTouchTap={time:0,id:null};suppressClickUntil=Date.now()+410;navigate(id);
-        } else lastTouchTap={time,id};
+      el.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){hoverPaused=false;resumeOrbit();}});
+      el.addEventListener('click',e=>{
+        if(e.pointerType==='touch'||performance.now()<ignoreSyntheticTouchClickUntil)return;
+        scheduleSelect(id);
+      });
+      el.addEventListener('dblclick',e=>{
+        if(e.pointerType==='touch'||performance.now()<ignoreSyntheticTouchClickUntil)return;
+        e.preventDefault();e.stopPropagation();navigate(id);
       });
       nodesEl.appendChild(el);added.push(el);
     }
     el.className=`node ${d.type} ${root?'root':p.depth===2?'secondary':''} ${id===selected?'selected':''} ${added.includes(el)?'birth':''}`;
     el.setAttribute('aria-label',`${d.name}。クリックで詳細、ダブルクリックで中心へ移動`);
     el.setAttribute('aria-pressed',String(id===selected));
-    el.style.left=p.x+'px';el.style.top=p.y+'px';
+    moveNode(el,p);
     el.querySelector('.kind').textContent=LABELS[d.type];
     el.querySelector('.name').textContent=d.name;
     el.querySelector('.short').textContent=d.short;
@@ -287,23 +331,33 @@ function draw(){
   }else{detail.classList.remove('visible');detail._place=null;}
 }
 function updateOrbitPositions(){
-  const {pts}=idealLayout();
+  const pts=idealLayout();
   positions=pts;
   for(const [id,p] of pts){
     const el=nodeElements.get(id);
-    if(el){el.style.left=p.x+'px';el.style.top=p.y+'px';}
+    if(el)moveNode(el,p);
   }
-  paintWires();
+  updateWirePositions();
+}
+function orbitAllowed(){
+  return !motionPreference.matches && selected===null && drag===null &&
+    activeTouches.size===0 && !hoverPaused && !document.hidden;
+}
+function resumeOrbit(){
+  if(!orbitAllowed()||orbitRaf)return;
+  lastOrbitTime=0;lastPaintTime=0;
+  orbitRaf=requestAnimationFrame(orbitFrame);
 }
 function orbitFrame(t){
-  const delta=lastOrbitTime?Math.min(t-lastOrbitTime,80):0;
-  lastOrbitTime=t;
-  const paused=motionPreference.matches||selected!==null||drag!==null||hoverPaused||document.hidden;
-  if(!paused){
+  orbitRaf=0;
+  if(!orbitAllowed())return; // No idle 60fps loop while paused or hidden.
+  if(!lastPaintTime||t-lastPaintTime>=MAX_FRAME_INTERVAL){
+    const delta=lastOrbitTime?Math.min(t-lastOrbitTime,110):0;
+    lastOrbitTime=t;lastPaintTime=t;
     orbitAngle=(orbitAngle+delta*Math.PI*2/ORBIT_PERIOD_MS)%(Math.PI*2);
     updateOrbitPositions();
   }
-  requestAnimationFrame(orbitFrame);
+  orbitRaf=requestAnimationFrame(orbitFrame);
 }
 function fillDetail(d){
   detailScroll.innerHTML=`<div class="detail-kind">${LABELS[d.type]}</div>
@@ -318,24 +372,34 @@ function fillDetail(d){
   detailScroll.querySelectorAll('[data-follow]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();navigate(el.dataset.follow);}));
 }
 function scheduleSelect(id){
-  if(Date.now()<suppressClickUntil)return;
   if(pendingClick)clearTimeout(pendingClick);
   // Single click opens a detail; wait briefly to distinguish it from dblclick.
-  pendingClick=setTimeout(()=>{pendingClick=null;select(id);},235);
+  pendingClick=setTimeout(()=>{pendingClick=null;select(id);},220);
 }
-function select(id){
+function select(id,deferRecenter=false){
+  if(touchRecenterTimer){clearTimeout(touchRecenterTimer);touchRecenterTimer=null;}
   if(!positions.has(id))return;
   selected=selected===id?null:id;
   draw();
-  if(selected)ensureSelectionVisible();
+  if(selected){
+    if(deferRecenter){
+      const expected=selected;
+      touchRecenterTimer=setTimeout(()=>{
+        touchRecenterTimer=null;
+        if(selected===expected)ensureSelectionVisible();
+      },410);
+    }else ensureSelectionVisible();
+  }else resumeOrbit();
 }
 function navigate(id){
+  if(touchRecenterTimer){clearTimeout(touchRecenterTimer);touchRecenterTimer=null;}
   if(pendingClick){clearTimeout(pendingClick);pendingClick=null;}
   if(!lookup.has(id))return;
-  focus=id;selected=null;hoverPaused=false;
+  focus=id;selected=null;hoverPaused=false;layoutModel=null;
   draw();
   // Re-center the chosen hub, rather than opening a top-most detail overlay.
   centerCamera(false);
+  resumeOrbit();
 }
 function cameraApply(){world.style.transform=`translate(${camera.x}px,${camera.y}px) scale(${camera.scale})`;}
 function centerCamera(initial){
@@ -376,35 +440,112 @@ viewport.addEventListener('wheel',e=>{
   if(e.target.closest('#detail'))return;
   e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY>0?.91:1.10);
 },{passive:false});
+// Touch: pan from any node, pinch-to-zoom, immediate single tap, double tap to center.
+function touchPair(){return [...activeTouches.values()].slice(0,2);}
+function setPinchStart(){
+  if(activeTouches.size<2){pinchStart=null;return;}
+  const [a,b]=touchPair();
+  const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+  pinchStart={distance:Math.max(10,Math.hypot(a.x-b.x,a.y-b.y)),
+    scale:camera.scale, worldX:(midX-camera.x)/camera.scale,worldY:(midY-camera.y)/camera.scale};
+}
+function touchTap(id){
+  if(!id){
+    if(selected){selected=null;draw();resumeOrbit();}
+    return;
+  }
+  const now=performance.now();
+  if(lastTouchTap.id===id&&now-lastTouchTap.time<350){
+    lastTouchTap={time:0,id:null};navigate(id);
+  }else{
+    lastTouchTap={time:now,id};
+    select(id,true); // Immediate detail; defer camera shift to preserve double tap target.
+  }
+}
 viewport.addEventListener('pointerdown',e=>{
-  if(e.target.closest('.node,#detail')||(e.button!==0&&e.pointerType==='mouse'))return;
+  if(e.target.closest('#detail'))return;
+  if(e.pointerType==='touch'){
+    const point={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,
+      camX:camera.x,camY:camera.y,moved:false,multi:false,
+      id:e.target.closest('[data-node]')?.dataset.node||null};
+    activeTouches.set(e.pointerId,point);
+    if(activeTouches.size>=2){
+      for(const p of activeTouches.values())p.multi=true;
+      setPinchStart();
+    }
+    try{viewport.setPointerCapture(e.pointerId);}catch(_error){}
+    return;
+  }
+  if(e.target.closest('.node')||(e.button!==0&&e.pointerType==='mouse'))return;
   drag={px:e.clientX,py:e.clientY,x:camera.x,y:camera.y,moved:false};
   viewport.setPointerCapture(e.pointerId);viewport.classList.add('dragging');
 });
 viewport.addEventListener('pointermove',e=>{
+  if(e.pointerType==='touch'){
+    const p=activeTouches.get(e.pointerId);if(!p)return;
+    p.x=e.clientX;p.y=e.clientY;
+    if(Math.hypot(p.x-p.startX,p.y-p.startY)>7)p.moved=true;
+    if(activeTouches.size>=2){
+      if(!pinchStart)setPinchStart();
+      const [a,b]=touchPair();
+      const dist=Math.max(10,Math.hypot(a.x-b.x,a.y-b.y));
+      const midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;
+      camera.scale=Math.max(.28,Math.min(2.4,pinchStart.scale*dist/pinchStart.distance));
+      camera.x=midX-pinchStart.worldX*camera.scale;
+      camera.y=midY-pinchStart.worldY*camera.scale;
+      cameraApply();
+    }else if(p.moved){
+      camera.x=p.camX+p.x-p.startX;
+      camera.y=p.camY+p.y-p.startY;
+      cameraApply();
+    }
+    return;
+  }
   if(!drag)return;
   const dx=e.clientX-drag.px,dy=e.clientY-drag.py;
   if(Math.hypot(dx,dy)>4)drag.moved=true;
   camera.x=drag.x+dx;camera.y=drag.y+dy;cameraApply();
 });
-viewport.addEventListener('pointerup',()=>{
+function endTouch(e,cancelled){
+  const point=activeTouches.get(e.pointerId);
+  if(!point)return;
+  activeTouches.delete(e.pointerId);
+  ignoreSyntheticTouchClickUntil=performance.now()+520;
+  if(activeTouches.size===1){
+    const remaining=[...activeTouches.values()][0];
+    remaining.camX=camera.x;remaining.camY=camera.y;
+    remaining.startX=remaining.x;remaining.startY=remaining.y;
+    remaining.multi=true;pinchStart=null;
+  }else if(activeTouches.size===0){pinchStart=null;}
+  if(!cancelled&&!point.moved&&!point.multi)touchTap(point.id);
+  if(activeTouches.size===0)resumeOrbit();
+}
+viewport.addEventListener('pointerup',e=>{
+  if(e.pointerType==='touch'){endTouch(e,false);return;}
   if(!drag)return;
   const wasMove=drag.moved;drag=null;viewport.classList.remove('dragging');
   if(!wasMove&&selected){selected=null;draw();}
+  resumeOrbit();
 });
-viewport.addEventListener('pointercancel',()=>{drag=null;viewport.classList.remove('dragging');});
+viewport.addEventListener('pointercancel',e=>{
+  if(e.pointerType==='touch'){endTouch(e,true);return;}
+  drag=null;viewport.classList.remove('dragging');resumeOrbit();
+});
 window.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&selected){selected=null;draw();}
+  if(e.key==='Escape'&&selected){selected=null;draw();resumeOrbit();}
   if((e.key==='Enter'||e.key===' ')&&document.activeElement?.dataset?.node){
     // A keyboard modifier offers the same behavior as double-click.
     if(e.shiftKey){e.preventDefault();navigate(document.activeElement.dataset.node);}
   }
 });
 window.addEventListener('resize',()=>centerCamera(true));
+document.addEventListener('visibilitychange',resumeOrbit);
+if(motionPreference.addEventListener)motionPreference.addEventListener('change',resumeOrbit);
+
 loadKnowledge().then(()=>{
   centerCamera(true);
   draw();
-  requestAnimationFrame(orbitFrame);
+  resumeOrbit();
 }).catch(error=>{
   console.error('知識データの読み込みエラー:',error);
   const message=document.createElement('div');
